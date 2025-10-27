@@ -241,6 +241,40 @@ function __bobthefish_hg_project_dir -S -a real_pwd -d 'Print the current hg pro
     end
 end
 
+function __bobthefish_jj_project_dir -S -a real_pwd -d 'Print the current jj project base directory'
+    command -q jj
+    or return
+
+    # Look for a .jj directory in this or parent dirs
+    set -l d $real_pwd
+    while test "$d" != "/"
+        if test -d "$d/.jj"
+            echo $d
+            return
+        end
+        set d (dirname "$d")
+    end
+end
+
+function __bobthefish_prompt_jj -S -a jj_root_dir -a real_pwd -d 'Display the actual jj state'
+    __bobthefish_path_segment $jj_root_dir project
+
+    __bobthefish_start_segment
+    set_color normal
+    echo -ns $branch_glyph (fish_jj_prompt) $flags ' '
+
+    set -l project_pwd (__bobthefish_project_pwd $jj_root_dir $real_pwd)
+    if [ "$project_pwd" ]
+        if [ -w "$real_pwd" ]
+            __bobthefish_start_segment $color_path
+        else
+            __bobthefish_start_segment $color_path_nowrite
+        end
+
+        echo -ns $project_pwd ' '
+    end
+end
+
 function __bobthefish_project_pwd -S -a project_root_dir -a real_pwd -d 'Print the working directory relative to project root'
     set -q theme_project_dir_length
     or set -l theme_project_dir_length 0
@@ -1181,10 +1215,13 @@ function fish_prompt -d 'bobthefish, a fish theme optimized for awesome'
     set -l real_pwd (__bobthefish_pwd)
 
     # VCS
+    set -l jj_root_dir (__bobthefish_jj_project_dir $real_pwd)
     set -l git_root_dir (__bobthefish_git_project_dir $real_pwd)
     set -l hg_root_dir (__bobthefish_hg_project_dir $real_pwd)
-
-    if [ "$git_root_dir" -a "$hg_root_dir" ]
+    
+    if [ "$jj_root_dir" ]
+        __bobthefish_prompt_jj $jj_root_dir $real_pwd
+    else if [ "$git_root_dir" -a "$hg_root_dir" ]
         # only show the closest parent
         switch $git_root_dir
             case $hg_root_dir\*
